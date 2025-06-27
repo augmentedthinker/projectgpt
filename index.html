@@ -6,6 +6,8 @@
     <title>VIBE Master Scene</title>
     <!-- A-Frame CDN for easy inclusion without npm -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- A-Frame Environment Component CDN for richer scenes -->
+    <script src="https://cdn.jsdelivr.net/gh/supermedium/aframe-environment-component@1.3.1/dist/aframe-environment-component.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -23,30 +25,30 @@
     </style>
 </head>
 <body>
-    <!-- A-Frame scene definition -->
     <a-scene>
-        <!-- Camera with a gaze-based cursor for interaction -->
-        <a-camera position="0 1.6 0" look-controls>
-            <!-- Cursor that changes color on hover/click -->
-            <a-entity cursor="fuse: true; fuseTimeout: 500"
-                      position="0 0 -1"
+        <!-- Camera with a gaze-based cursor and raycaster for interaction -->
+        <!-- The raycaster targets objects with the 'collidable' class -->
+        <!-- showLine: true is useful for debugging to see where the gaze ray is going -->
+        <a-camera position="0 1.6 0" look-controls
+                  raycaster="objects: .collidable; showLine: true; far: 50"
+                  cursor="fuse: false; rayOrigin: cursor">
+            <!-- Cursor visual - This entity provides the visual representation of the cursor -->
+            <a-entity position="0 0 -1"
                       geometry="primitive: ring; radiusOuter: 0.008; radiusInner: 0.005"
                       material="color: #fff; shader: flat"
-                      animation__fusing="property: scale; from: 1 1 1; to: 0.8 0.8 0.8; startEvents: fusing; dur: 500"
-                      animation__fused="property: scale; to: 1 1 1; startEvents: click,mouseleave; dur: 1">
-            </a-entity>
+                      ></a-entity>
         </a-camera>
 
-        <!-- Basic environment: ground and sky -->
-        <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
-        <a-sky color="#ECECEC"></a-sky>
+        <!-- Environment component for a richer background without complex modeling -->
+        <a-entity environment="preset: contact; lightPosition: 0 5 0;"></a-entity>
 
-        <!-- An interactive red box -->
+        <!-- An interactive box - now with 'collidable' class for raycaster interaction -->
         <a-box id="interactiveBox"
                position="-1 0.5 -3"
                rotation="0 45 0"
                color="#EF2D5E"
                shadow
+               class="collidable"
                event-set__enter="_event:mouseenter; color: #4CC3D9;"
                event-set__leave="_event:mouseleave; color: #EF2D5E;">
         </a-box>
@@ -54,17 +56,138 @@
         <!-- A static green sphere -->
         <a-sphere position="1 1.25 -5" radius="1.25" color="#5a9c37" shadow></a-sphere>
 
-        <!-- Simple text element -->
+        <!-- A new static cylinder -->
+        <a-cylinder position="2 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow></a-cylinder>
+
+        <!-- Simple welcome text element -->
         <a-text value="Welcome to VIBE!"
-                position="0 2 -3"
+                position="0 2.5 -4"
                 align="center"
                 color="#e0e0e0"
                 width="5"></a-text>
+
+        <!-- A button to trigger AI response -->
+        <!-- It has the 'collidable' class so the raycaster can interact with it -->
+        <a-entity id="aiButton"
+                  position="0 1 -2.5"
+                  geometry="primitive: box; width: 0.8; height: 0.3; depth: 0.1"
+                  material="color: #6A05AD; shader: flat"
+                  shadow
+                  class="collidable"
+                  gaze-click-handler> <!-- Custom component for handling clicks and AI logic -->
+            <a-text value="Ask AI for VR Fact"
+                    position="0 0 0.06"
+                    align="center"
+                    color="#FFFFFF"
+                    width="0.7"></a-text>
+            <!-- Text element to display AI response -->
+            <a-text id="aiResponseText"
+                    value="AI says..."
+                    position="0 -0.5 0"
+                    align="center"
+                    color="#FFD700"
+                    width="2"
+                    wrap-count="30"
+                    visible="false"></a-text>
+            <!-- Loading indicator text -->
+            <a-text id="loadingText"
+                    value="Thinking..."
+                    position="0 -0.2 0.06"
+                    align="center"
+                    color="#FFFFFF"
+                    width="0.8"
+                    visible="false"></a-text>
+        </a-entity>
 
         <!-- Lights for better visibility and shadows -->
         <a-entity light="type: ambient; color: #BBB"></a-entity>
         <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-1 1 1"></a-entity>
 
     </a-scene>
+
+    <script>
+        /**
+         * getAIReponse - Fetches a text response from the Gemini API.
+         * @param {string} prompt - The prompt to send to the AI.
+         * @returns {Promise<string>} - A promise that resolves to the AI's text response.
+         */
+        async function getAIReponse(prompt) {
+            const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: chatHistory };
+            // The apiKey is left as an empty string; Canvas will automatically provide it.
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                // Make the API call to Gemini
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                // Extract the text from the AI's response
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    console.error("Unexpected AI response structure:", result);
+                    return "AI did not respond as expected.";
+                }
+            } catch (error) {
+                console.error("Error fetching AI response:", error);
+                return "Error connecting to AI. Please try again later.";
+            }
+        }
+
+        // A-Frame custom component to handle gaze clicks and trigger AI interaction
+        AFRAME.registerComponent('gaze-click-handler', {
+            init: function () {
+                const el = this.el; // The entity this component is attached to
+                const aiResponseText = document.querySelector('#aiResponseText');
+                const loadingText = document.querySelector('#loadingText');
+
+                // Event listener for a 'click' event (triggered by gaze cursor fuse or actual click)
+                el.addEventListener('click', async function () {
+                    // Show loading message and hide previous AI response
+                    loadingText.setAttribute('visible', true);
+                    aiResponseText.setAttribute('visible', false);
+                    aiResponseText.setAttribute('value', 'AI says...'); // Reset text
+
+                    // Visually indicate the button is pressed (temporary color change)
+                    el.setAttribute('material', 'color', '#8A2BE2'); // Lighter purple
+
+                    // Define the prompt for the AI
+                    const prompt = "Tell me a short, friendly VR-related fact. Keep it very concise, one to two sentences.";
+                    // Fetch the AI response
+                    const response = await getAIReponse(prompt);
+
+                    // Hide loading message and display the AI's response
+                    loadingText.setAttribute('visible', false);
+                    aiResponseText.setAttribute('value', response);
+                    aiResponseText.setAttribute('visible', true);
+
+                    // Revert button color to original
+                    el.setAttribute('material', 'color', '#6A05AD');
+                });
+
+                // Add hover effects for visual feedback
+                el.addEventListener('mouseenter', function () {
+                    // Only change color if the button is not currently in a loading state
+                    if (!loadingText.getAttribute('visible')) {
+                        el.setAttribute('material', 'color', '#9932CC'); // Darker purple on hover
+                    }
+                });
+                el.addEventListener('mouseleave', function () {
+                    // Only revert color if the button is not currently in a loading state
+                    if (!loadingText.getAttribute('visible')) {
+                        el.setAttribute('material', 'color', '#6A05AD'); // Original purple
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
