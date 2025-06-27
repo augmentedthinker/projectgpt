@@ -120,12 +120,21 @@
 
             try {
                 // Make the API call to Gemini
+                console.log("Fetching AI response...");
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+
+                // Check if the response was successful (status code 2xx)
+                if (!response.ok) {
+                    const errorText = await response.text(); // Get response text for more details
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
                 const result = await response.json();
+                console.log("AI response received:", result);
 
                 // Extract the text from the AI's response
                 if (result.candidates && result.candidates.length > 0 &&
