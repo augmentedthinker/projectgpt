@@ -1,9 +1,9 @@
 <!--
 Cube Room for Oculus Quest 2
-- Pure front-end, single HTML file
-- Uses A-Frame (WebXR-ready)
-- Minimal, touch/click friendly
-- Loads in Oculus Browser (Meta Quest 2)
+Pure front-end, single HTML file
+Uses A-Frame (WebXR-ready)
+Minimal, touch/click friendly
+Loads in Oculus Browser (Meta Quest 2)
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -42,25 +42,21 @@ Cube Room for Oculus Quest 2
     <a-box width="0.1" height="10" depth="10" color="#373a4d" position="5 2.5 0"></a-box>
     <a-box width="10" height="10" depth="0.1" color="#313449" position="0 2.5 -5"></a-box>
     <a-box width="10" height="10" depth="0.1" color="#313449" position="0 2.5 5"></a-box>
-
     <!-- Soft lighting -->
     <a-entity light="type: ambient; intensity: 0.7;"></a-entity>
     <a-entity light="type: directional; intensity: 0.6; castShadow: true" position="2 8 4"></a-entity>
-
     <!-- Camera / User start position -->
     <a-entity id="rig" position="0 1.6 2">
       <a-camera wasd-controls-enabled="false" look-controls="pointerLockEnabled: false"></a-camera>
     </a-entity>
-
     <!-- Example interactive orb (future Animaeus avatar spot) -->
     <a-sphere position="0 1.6 -2" radius="0.3" color="#5bfffe" opacity="0.8">
       <a-animation attribute="scale" to="1.08 1.08 1.08" direction="alternate" dur="1800" repeat="indefinite"></a-animation>
     </a-sphere>
     <!-- You can change/remove orb as needed -->
   </a-scene>
-
   <script>
-    // Optional: Show "Tap to enter VR" if not already in VR
+    // Show "Tap to enter VR" if on Quest
     document.body.addEventListener('touchstart', function(){
       document.getElementById('enter-vr-prompt').style.display = 'none';
     });
