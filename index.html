@@ -3,316 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VR Space - Quest 2</title>
+    <title>VIBE Master Scene</title>
+    <!-- A-Frame CDN for easy inclusion without npm -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <style>
         body {
             margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            font-family: 'Arial', sans-serif;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            overflow: hidden; /* Prevent scrollbars */
+            font-family: 'Inter', sans-serif; /* Use Inter font */
+            background-color: #1a1a2e; /* Dark background */
+            color: #e0e0e0; /* Light text color */
         }
-
-        #container {
-            text-align: center;
-            color: white;
-            z-index: 100;
-            position: relative;
-        }
-
-        #enterVR {
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 15px 30px;
-            font-size: 18px;
-            border-radius: 50px;
-            cursor: pointer;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-            margin: 20px;
-        }
-
-        #enterVR:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        #enterVR:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        #status {
-            margin: 20px 0;
-            font-size: 16px;
-            opacity: 0.8;
-        }
-
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        .floating-particles {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            z-index: 2;
-        }
-
-        .particle {
-            position: absolute;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            animation: float 20s infinite linear;
-        }
-
-        @keyframes float {
-            0% {
-                transform: translateY(100vh) translateX(0px) rotate(0deg);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-100px) translateX(100px) rotate(360deg);
-                opacity: 0;
-            }
+        /* Ensure the A-Frame canvas takes full viewport */
+        a-scene {
+            display: block;
+            width: 100vw;
+            height: 100vh;
         }
     </style>
 </head>
 <body>
-    <div class="floating-particles" id="particles"></div>
-    
-    <canvas id="canvas"></canvas>
-    
-    <div id="container">
-        <h1>🌌 VR Space</h1>
-        <p id="status">Checking VR compatibility...</p>
-        <button id="enterVR" disabled>Enter VR</button>
-        <p><small>Works best on Oculus Quest 2 Browser</small></p>
-    </div>
+    <!-- A-Frame scene definition -->
+    <a-scene>
+        <!-- Camera with a gaze-based cursor for interaction -->
+        <a-camera position="0 1.6 0" look-controls>
+            <!-- Cursor that changes color on hover/click -->
+            <a-entity cursor="fuse: true; fuseTimeout: 500"
+                      position="0 0 -1"
+                      geometry="primitive: ring; radiusOuter: 0.008; radiusInner: 0.005"
+                      material="color: #fff; shader: flat"
+                      animation__fusing="property: scale; from: 1 1 1; to: 0.8 0.8 0.8; startEvents: fusing; dur: 500"
+                      animation__fused="property: scale; to: 1 1 1; startEvents: click,mouseleave; dur: 1">
+            </a-entity>
+        </a-camera>
 
-    <script>
-        // Global variables
-        let canvas, gl, scene, renderer;
-        let vrSupported = false;
-        let vrSession = null;
-        let vrRefSpace = null;
-        
-        // Initialize everything
-        async function init() {
-            canvas = document.getElementById('canvas');
-            setupWebGL();
-            createParticles();
-            await checkVRSupport();
-            setupEventListeners();
-            animate();
-        }
+        <!-- Basic environment: ground and sky -->
+        <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
+        <a-sky color="#ECECEC"></a-sky>
 
-        // Setup WebGL context
-        function setupWebGL() {
-            gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-            if (!gl) {
-                console.error('WebGL not supported');
-                return;
-            }
-            
-            // Resize canvas to full screen
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-            
-            // Set up basic WebGL scene
-            gl.clearColor(0.1, 0.1, 0.2, 1.0);
-            gl.enable(gl.DEPTH_TEST);
-        }
+        <!-- An interactive red box -->
+        <a-box id="interactiveBox"
+               position="-1 0.5 -3"
+               rotation="0 45 0"
+               color="#EF2D5E"
+               shadow
+               event-set__enter="_event:mouseenter; color: #4CC3D9;"
+               event-set__leave="_event:mouseleave; color: #EF2D5E;">
+        </a-box>
 
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            if (gl) {
-                gl.viewport(0, 0, canvas.width, canvas.height);
-            }
-        }
+        <!-- A static green sphere -->
+        <a-sphere position="1 1.25 -5" radius="1.25" color="#5a9c37" shadow></a-sphere>
 
-        // Create floating particles background
-        function createParticles() {
-            const particlesContainer = document.getElementById('particles');
-            for (let i = 0; i < 50; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.width = particle.style.height = (Math.random() * 5 + 2) + 'px';
-                particle.style.animationDelay = Math.random() * 20 + 's';
-                particle.style.animationDuration = (Math.random() * 10 + 15) + 's';
-                particlesContainer.appendChild(particle);
-            }
-        }
+        <!-- Simple text element -->
+        <a-text value="Welcome to VIBE!"
+                position="0 2 -3"
+                align="center"
+                color="#e0e0e0"
+                width="5"></a-text>
 
-        // Check VR support
-        async function checkVRSupport() {
-            const status = document.getElementById('status');
-            const enterVRButton = document.getElementById('enterVR');
-            
-            if ('xr' in navigator) {
-                try {
-                    vrSupported = await navigator.xr.isSessionSupported('immersive-vr');
-                    if (vrSupported) {
-                        status.textContent = '✅ VR Ready! Click to enter immersive space';
-                        enterVRButton.disabled = false;
-                        enterVRButton.textContent = 'Enter VR Space';
-                    } else {
-                        status.textContent = '❌ VR not supported on this device';
-                        enterVRButton.textContent = 'VR Not Available';
-                    }
-                } catch (error) {
-                    console.error('VR check failed:', error);
-                    status.textContent = '⚠️ VR check failed - try refreshing';
-                }
-            } else {
-                status.textContent = '❌ WebXR not supported in this browser';
-                enterVRButton.textContent = 'WebXR Not Supported';
-            }
-        }
+        <!-- Lights for better visibility and shadows -->
+        <a-entity light="type: ambient; color: #BBB"></a-entity>
+        <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-1 1 1"></a-entity>
 
-        // Setup event listeners
-        function setupEventListeners() {
-            const enterVRButton = document.getElementById('enterVR');
-            enterVRButton.addEventListener('click', toggleVR);
-        }
-
-        // Toggle VR mode
-        async function toggleVR() {
-            if (!vrSupported) return;
-            
-            if (vrSession) {
-                // Exit VR
-                vrSession.end();
-            } else {
-                // Enter VR
-                try {
-                    vrSession = await navigator.xr.requestSession('immersive-vr', {
-                        requiredFeatures: ['local-floor']
-                    });
-                    
-                    await setupVRSession();
-                    document.getElementById('container').style.display = 'none';
-                } catch (error) {
-                    console.error('Failed to start VR session:', error);
-                    alert('Failed to start VR session. Make sure you\'re using a VR headset.');
-                }
-            }
-        }
-
-        // Setup VR session
-        async function setupVRSession() {
-            if (!vrSession) return;
-            
-            // Set up WebGL layer
-            const glLayer = new XRWebGLLayer(vrSession, gl);
-            vrSession.updateRenderState({ baseLayer: glLayer });
-            
-            // Get reference space
-            vrRefSpace = await vrSession.requestReferenceSpace('local-floor');
-            
-            // Handle session events
-            vrSession.addEventListener('end', onVRSessionEnd);
-            
-            // Update button
-            document.getElementById('enterVR').textContent = 'Exit VR';
-            document.getElementById('status').textContent = '🥽 VR Session Active';
-            
-            console.log('VR session started successfully');
-        }
-
-        // Handle VR session end
-        function onVRSessionEnd() {
-            vrSession = null;
-            vrRefSpace = null;
-            document.getElementById('container').style.display = 'block';
-            document.getElementById('enterVR').textContent = 'Enter VR Space';
-            document.getElementById('status').textContent = '✅ VR Ready! Click to enter immersive space';
-            console.log('VR session ended');
-        }
-
-        // Animation loop
-        function animate() {
-            if (vrSession) {
-                vrSession.requestAnimationFrame(renderVR);
-            } else {
-                requestAnimationFrame(animate);
-                render2D();
-            }
-        }
-
-        // Render 2D scene
-        function render2D() {
-            if (!gl) return;
-            
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            
-            // Simple animated background
-            const time = Date.now() * 0.001;
-            const r = Math.sin(time * 0.5) * 0.3 + 0.1;
-            const g = Math.sin(time * 0.3) * 0.3 + 0.1;
-            const b = Math.sin(time * 0.7) * 0.3 + 0.2;
-            gl.clearColor(r, g, b, 1.0);
-        }
-
-        // Render VR scene
-        function renderVR(time, frame) {
-            if (!vrSession || !frame) {
-                animate();
-                return;
-            }
-            
-            const session = frame.session;
-            const glLayer = session.renderState.baseLayer;
-            
-            gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-            gl.viewport(0, 0, glLayer.framebufferWidth, glLayer.framebufferHeight);
-            
-            // Clear with animated colors
-            const t = time * 0.001;
-            const r = Math.sin(t * 0.5) * 0.3 + 0.2;
-            const g = Math.sin(t * 0.3) * 0.3 + 0.1;
-            const b = Math.sin(t * 0.7) * 0.3 + 0.4;
-            gl.clearColor(r, g, b, 1.0);
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            
-            // Get viewer pose
-            const pose = frame.getViewerPose(vrRefSpace);
-            if (pose) {
-                // Render for each eye
-                for (const view of pose.views) {
-                    const viewport = glLayer.getViewport(view);
-                    gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-                    
-                    // Simple VR scene rendering would go here
-                    // For now, just clear with animated colors
-                }
-            }
-            
-            session.requestAnimationFrame(renderVR);
-        }
-
-        // Start the application
-        init();
-    </script>
+    </a-scene>
 </body>
 </html>
