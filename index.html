@@ -4,11 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VIBE Master Scene</title>
+    <!-- Meta tags for SEO and social sharing -->
+    <meta name="description" content="An immersive VR experience built with A-Frame, featuring interactive elements and AI integration, optimized for Meta Quest 2 and Chromebooks.">
+    <meta name="author" content="Gemini AI">
+    <meta name="keywords" content="VR, A-Frame, WebXR, Meta Quest, Chromebook, AI, immersive, single-file">
+
     <!-- A-Frame CDN for easy inclusion without npm -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <!-- A-Frame Environment Component CDN for richer scenes -->
     <script src="https://cdn.jsdelivr.net/gh/supermedium/aframe-environment-component@1.3.1/dist/aframe-environment-component.min.js"></script>
+    <!-- Tone.js for simple audio feedback -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+
     <style>
+        /* This section would ideally be in an external styles.css file for better organization */
+        /* body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+        } */
         body {
             margin: 0;
             overflow: hidden; /* Prevent scrollbars */
@@ -16,7 +32,7 @@
             background-color: #1a1a2e; /* Dark background */
             color: #e0e0e0; /* Light text color */
         }
-        /* Ensure the A-Frame canvas takes full viewport */
+        /* Ensure the A-Frame canvas takes full viewport, contributing to responsive design */
         a-scene {
             display: block;
             width: 100vw;
@@ -42,24 +58,47 @@
         <!-- Environment component for a richer background without complex modeling -->
         <a-entity environment="preset: contact; lightPosition: 0 5 0;"></a-entity>
 
-        <!-- An interactive box - now with 'collidable' class for raycaster interaction -->
+        <!-- An interactive box - now with 'collidable' class for raycaster interaction and animations -->
         <a-box id="interactiveBox"
                position="-1 0.5 -3"
                rotation="0 45 0"
                color="#EF2D5E"
                shadow
                class="collidable"
-               event-set__enter="_event:mouseenter; color: #4CC3D9;"
-               event-set__leave="_event:mouseleave; color: #EF2D5E;">
+               event-set__enter="_event:mouseenter; color: #4CC3D9; scale: 1.1 1.1 1.1;"
+               event-set__leave="_event:mouseleave; color: #EF2D5E; scale: 1 1 1;">
+            <!-- Animation for continuous subtle rotation -->
+            <a-animation attribute="rotation"
+                         dur="8000"
+                         fill="forwards"
+                         to="0 405 0"
+                         easing="linear"
+                         repeat="indefinite"></a-animation>
         </a-box>
 
-        <!-- A static green sphere -->
-        <a-sphere position="1 1.25 -5" radius="1.25" color="#5a9c37" shadow></a-sphere>
+        <!-- A static green sphere with pulse animation -->
+        <a-sphere position="1 1.25 -5" radius="1.25" color="#5a9c37" shadow>
+            <a-animation attribute="scale"
+                         dur="1500"
+                         fill="forwards"
+                         to="1.05 1.05 1.05"
+                         direction="alternate"
+                         easing="ease-in-out"
+                         repeat="indefinite"></a-animation>
+        </a-sphere>
 
-        <!-- A new static cylinder -->
-        <a-cylinder position="2 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow></a-cylinder>
+        <!-- A new static cylinder with subtle vertical movement -->
+        <a-cylinder position="2 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow>
+            <a-animation attribute="position"
+                         dur="2000"
+                         fill="forwards"
+                         to="2 0.85 -3"
+                         direction="alternate"
+                         easing="ease-in-out"
+                         repeat="indefinite"></a-animation>
+        </a-cylinder>
 
-        <!-- Simple welcome text element -->
+        <!-- Simple welcome text element - ensure sufficient contrast (current colors are good) -->
         <a-text value="Welcome to VIBE!"
                 position="0 2.5 -4"
                 align="center"
@@ -100,12 +139,28 @@
         </a-entity>
 
         <!-- Lights for better visibility and shadows -->
+        <!-- Consider optimizing light count for performance in complex scenes -->
         <a-entity light="type: ambient; color: #BBB"></a-entity>
         <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-1 1 1"></a-entity>
 
     </a-scene>
 
     <script>
+        // This script section would ideally be in an external scripts.js file for better organization
+        // and reusability, especially in larger projects.
+
+        // Initialize Tone.js for audio feedback
+        let clickSynth;
+        if (typeof Tone !== 'undefined') {
+            try {
+                clickSynth = new Tone.MembraneSynth().toDestination();
+            } catch (e) {
+                console.warn("Tone.js could not be initialized:", e);
+                clickSynth = null; // Ensure synth is null if initialization fails
+            }
+        }
+
+
         /**
          * getAIReponse - Fetches a text response from the Gemini API.
          * @param {string} prompt - The prompt to send to the AI.
@@ -115,22 +170,33 @@
             const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
             const payload = { contents: chatHistory };
             // The apiKey is left as an empty string; Canvas will automatically provide it.
+            // In a production environment, this API key should never be exposed client-side.
+            // A backend proxy is recommended to secure API keys and handle requests.
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
+            // Add a timeout for the API call
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 15000); // 15-second timeout
+
             try {
-                // Make the API call to Gemini
-                console.log("Fetching AI response...");
+                console.log("Fetching AI response with prompt:", prompt);
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: controller.signal // Apply the timeout signal
                 });
+
+                // Clear the timeout as the fetch has completed
+                clearTimeout(id);
 
                 // Check if the response was successful (status code 2xx)
                 if (!response.ok) {
                     const errorText = await response.text(); // Get response text for more details
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                    console.error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                    // Provide user-friendly error message
+                    return `Error: Could not get AI response (Status: ${response.status}).`;
                 }
 
                 const result = await response.json();
@@ -143,11 +209,17 @@
                     return result.candidates[0].content.parts[0].text;
                 } else {
                     console.error("Unexpected AI response structure:", result);
-                    return "AI did not respond as expected.";
+                    return "AI did not respond as expected. Please try again.";
                 }
             } catch (error) {
-                console.error("Error fetching AI response:", error);
-                return "Error connecting to AI. Please try again later.";
+                clearTimeout(id); // Ensure timeout is cleared even on error
+                if (error.name === 'AbortError') {
+                    console.error("Error fetching AI response: Request timed out", error);
+                    return "AI request timed out. Please try again.";
+                } else {
+                    console.error("Error fetching AI response:", error);
+                    return "Error connecting to AI. Check console for details.";
+                }
             }
         }
 
@@ -158,8 +230,19 @@
                 const aiResponseText = document.querySelector('#aiResponseText');
                 const loadingText = document.querySelector('#loadingText');
 
-                // Event listener for a 'click' event (triggered by gaze cursor fuse or actual click)
+                // Logging user interaction: AI button click
                 el.addEventListener('click', async function () {
+                    console.log("AI Button Clicked!");
+                    if (clickSynth) {
+                        try {
+                            // Play a subtle sound on click
+                            await Tone.start(); // Required to start audio context in some browsers
+                            clickSynth.triggerAttackRelease("C4", "8n");
+                        } catch (e) {
+                            console.warn("Failed to play click sound:", e);
+                        }
+                    }
+
                     // Show loading message and hide previous AI response
                     loadingText.setAttribute('visible', true);
                     aiResponseText.setAttribute('visible', false);
@@ -168,8 +251,9 @@
                     // Visually indicate the button is pressed (temporary color change)
                     el.setAttribute('material', 'color', '#8A2BE2'); // Lighter purple
 
-                    // Define the prompt for the AI
-                    const prompt = "Tell me a short, friendly VR-related fact. Keep it very concise, one to two sentences.";
+                    // Improve AI Prompt: Example of a dynamic prompt.
+                    // For user customization, you'd need a 3D input field or selection UI.
+                    const prompt = "Tell me a short, fascinating fact about virtual reality or its history. Keep it very concise, one to two sentences, and engaging.";
                     // Fetch the AI response
                     const response = await getAIReponse(prompt);
 
@@ -182,14 +266,16 @@
                     el.setAttribute('material', 'color', '#6A05AD');
                 });
 
-                // Add hover effects for visual feedback
+                // Add hover effects for visual feedback and logging
                 el.addEventListener('mouseenter', function () {
+                    console.log("AI Button: mouseenter");
                     // Only change color if the button is not currently in a loading state
                     if (!loadingText.getAttribute('visible')) {
                         el.setAttribute('material', 'color', '#9932CC'); // Darker purple on hover
                     }
                 });
                 el.addEventListener('mouseleave', function () {
+                    console.log("AI Button: mouseleave");
                     // Only revert color if the button is not currently in a loading state
                     if (!loadingText.getAttribute('visible')) {
                         el.setAttribute('material', 'color', '#6A05AD'); // Original purple
