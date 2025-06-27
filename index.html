@@ -1,0 +1,74 @@
+<!--
+Cube Room for Oculus Quest 2
+- Pure front-end, single HTML file
+- Uses A-Frame (WebXR-ready)
+- Minimal, touch/click friendly
+- Loads in Oculus Browser (Meta Quest 2)
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VIBE Cube Room</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    body { margin:0; overflow:hidden; }
+    #enter-vr-prompt {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      font-size: 1.5em;
+      padding: 1em 2em;
+      border-radius: 1em;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="enter-vr-prompt">Tap to enter VR</div>
+  <a-scene background="color: #181b2a" embedded vr-mode-ui="enabled: true">
+    <!-- Cube Room: 10x10x10m -->
+    <!-- Floor -->
+    <a-box width="10" height="0.1" depth="10" color="#292d3e" position="0 -0.05 0"></a-box>
+    <!-- Ceiling -->
+    <a-box width="10" height="0.1" depth="10" color="#23253a" position="0 5 0"></a-box>
+    <!-- Walls -->
+    <a-box width="0.1" height="10" depth="10" color="#373a4d" position="-5 2.5 0"></a-box>
+    <a-box width="0.1" height="10" depth="10" color="#373a4d" position="5 2.5 0"></a-box>
+    <a-box width="10" height="10" depth="0.1" color="#313449" position="0 2.5 -5"></a-box>
+    <a-box width="10" height="10" depth="0.1" color="#313449" position="0 2.5 5"></a-box>
+
+    <!-- Soft lighting -->
+    <a-entity light="type: ambient; intensity: 0.7;"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6; castShadow: true" position="2 8 4"></a-entity>
+
+    <!-- Camera / User start position -->
+    <a-entity id="rig" position="0 1.6 2">
+      <a-camera wasd-controls-enabled="false" look-controls="pointerLockEnabled: false"></a-camera>
+    </a-entity>
+
+    <!-- Example interactive orb (future Animaeus avatar spot) -->
+    <a-sphere position="0 1.6 -2" radius="0.3" color="#5bfffe" opacity="0.8">
+      <a-animation attribute="scale" to="1.08 1.08 1.08" direction="alternate" dur="1800" repeat="indefinite"></a-animation>
+    </a-sphere>
+    <!-- You can change/remove orb as needed -->
+  </a-scene>
+
+  <script>
+    // Optional: Show "Tap to enter VR" if not already in VR
+    document.body.addEventListener('touchstart', function(){
+      document.getElementById('enter-vr-prompt').style.display = 'none';
+    });
+    if (navigator.userAgent.match(/OculusBrowser|Quest|Meta/)) {
+      setTimeout(()=>{
+        document.getElementById('enter-vr-prompt').style.display = 'block';
+      }, 1300);
+    }
+  </script>
+</body>
+</html>
