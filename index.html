@@ -1,234 +1,245 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <title>Interactive VR Space</title>
     <meta charset="utf-8">
-    <title>VR Mushroom Garden with Oculus Controls</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- A-Frame CDN -->
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <!-- A-Frame Extras for movement-controls -->
-    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
-        /* Simple styling for the main container if needed, though A-Frame typically takes over */
-        #loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #1a1a1a;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.5em;
-            z-index: 9999;
-            opacity: 1;
-            transition: opacity 1s ease-in-out;
-        }
-        #loading-screen.hidden {
-            opacity: 0;
-            pointer-events: none;
+        body { margin: 0; font-family: sans-serif; }
+        #vr-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10;
+            border: 1px solid #fff;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            padding: 12px 24px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <!-- Loading screen to provide feedback while assets load (though minimal here) -->
-    <div id="loading-screen">
-        <p>Entering the Mushroom Forest...</p>
-    </div>
-
-    <a-scene background="color: #333333" cursor="rayOrigin: mouse" raycaster="objects: .collidable">
-        <!-- Asset management (optional but good practice) -->
-        <a-assets>
-            <!-- No external assets for now, but this is where they would go -->
-        </a-assets>
-
-        <!-- Camera Rig for Movement -->
-        <!-- The camera rig is a parent entity that moves, allowing the camera (and controllers) to follow. -->
-        <!-- 'movement-controls' handles the locomotion. 'speed' can be adjusted. -->
-        <a-entity id="rig" movement-controls="speed: 0.1; fly: false">
-            <!-- Camera -->
-            <!-- 'look-controls' allows head rotation. 'wasd-controls' for keyboard fallback. -->
-            <a-camera position="0 1.6 0" look-controls wasd-controls>
-                <!-- Gaze cursor for non-VR or fallback interaction (optional but helpful) -->
-                <a-entity cursor="fuse: false; rayOrigin: mouse"
-                          position="0 0 -1"
-                          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-                          material="color: white; shader: flat; opacity: 0.7"></a-entity>
-            </a-camera>
-
-            <!-- Oculus Touch Controllers -->
-            <!-- 'meta-touch-controls' provides the 3D model and events for Oculus controllers. -->
-            <!-- 'hand: left' for the left controller, 'hand: right' for the right. -->
-            <a-entity id="leftHand" meta-touch-controls="hand: left; model: true"></a-entity>
-
-            <a-entity id="rightHand" meta-touch-controls="hand: right; model: true" laser-controls="hand: right">
-                <!-- 'laser-controls' adds a visual laser pointer and a raycaster for interaction. -->
-                <!-- The cursor component on the laser-controls creates click events on intersected objects. -->
-                <a-entity cursor="rayOrigin: entity; fuse: false"
-                          geometry="primitive: sphere; radius: 0.005"
-                          material="color: red; shader: flat"
-                          raycaster="objects: .collidable; showLine: true; lineColor: blue; lineOpacity: 0.8">
-                </a-entity>
-            </a-entity>
-        </a-entity>
-
-        <!-- Floor -->
-        <!-- A simple green plane as the floor. It has a class 'collidable' to be interactable. -->
-        <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#558B2F"
-                 material="shader: standard; roughness: 0.7" class="collidable"></a-plane>
-
-        <!-- Mushroom Factory Component (for easier creation of mushrooms) -->
-        <!-- This custom component will create the stem and cap for a mushroom entity -->
-        <script>
-            AFRAME.registerComponent('mushroom', {
-                schema: {
-                    stemColor: {type: 'color', default: '#D2B48C'}, // Tan/light brown
-                    capColor: {type: 'color', default: '#8B0000'},  // Dark Red
-                    stemHeight: {type: 'number', default: 1},
-                    stemRadius: {type: 'number', default: 0.2},
-                    capRadius: {type: 'number', default: 0.6},
-                    capHeight: {type: 'number', default: 0.3},
-                    capOffsetY: {type: 'number', default: 0} // Offset cap vertically if needed
-                },
-                init: function () {
-                    var data = this.data;
-                    var el = this.el;
-
-                    // Mushroom Stem (Cylinder)
-                    this.stem = document.createElement('a-cylinder'); // Store reference to stem
-                    this.stem.setAttribute('height', data.stemHeight);
-                    this.stem.setAttribute('radius', data.stemRadius);
-                    this.stem.setAttribute('material', 'shader: standard; roughness: 0.7');
-                    this.stem.setAttribute('position', `0 ${data.stemHeight / 2} 0`);
-                    el.appendChild(this.stem);
-
-                    // Mushroom Cap (Sphere)
-                    this.cap = document.createElement('a-sphere'); // Store reference to cap
-                    this.cap.setAttribute('radius', data.capRadius);
-                    this.cap.setAttribute('material', 'shader: standard; roughness: 0.7');
-                    this.cap.setAttribute('scale', `1 0.5 1`); // Flatten on Y-axis
-                    this.cap.setAttribute('position', `0 ${data.stemHeight + data.capRadius * 0.5 + data.capOffsetY} 0`);
-                    el.appendChild(this.cap);
-
-                    // Set initial colors
-                    this.stem.setAttribute('color', data.stemColor);
-                    this.cap.setAttribute('color', data.capColor);
-                },
-                // The update method is called when component data changes
-                update: function (oldData) {
-                    var data = this.data;
-
-                    // Check if colors have changed and update the elements
-                    if (oldData.stemColor !== data.stemColor) {
-                        this.stem.setAttribute('color', data.stemColor);
-                    }
-                    if (oldData.capColor !== data.capColor) {
-                        this.cap.setAttribute('color', data.capColor);
-                    }
-                }
-            });
-        </script>
-
-        <!-- Mushrooms -->
-        <!-- Each mushroom entity now uses the custom 'mushroom' component -->
-
-        <!-- Large Red Mushroom -->
-        <a-entity position="-3 0 -5" scale="1.5 1.5 1.5"
-                  class="collidable" change-color-on-click
-                  mushroom="stemColor: #D2B48C; capColor: #FF4500; stemHeight: 1.2; stemRadius: 0.3; capRadius: 0.8; capHeight: 0.4"></a-entity>
-
-        <!-- Medium Blue Mushroom -->
-        <a-entity position="0 0 -3" scale="1 1 1"
-                  class="collidable" change-color-on-click
-                  mushroom="stemColor: #F5DEB3; capColor: #4169E1; stemHeight: 0.8; stemRadius: 0.25; capRadius: 0.7; capHeight: 0.3"></a-entity>
-
-        <!-- Small Yellow Mushroom -->
-        <a-entity position="2.5 0 -2" scale="0.7 0.7 0.7"
-                  class="collidable" change-color-on-click
-                  mushroom="stemColor: #FFDEAD; capColor: #FFD700; stemHeight: 0.6; stemRadius: 0.15; capRadius: 0.5; capHeight: 0.25"></a-entity>
-
-        <!-- Tall Purple Mushroom -->
-        <a-entity position="-1.5 0 -1" scale="1.2 1.2 1.2"
-                  class="collidable" change-color-on-click
-                  mushroom="stemColor: #DEB887; capColor: #9932CC; stemHeight: 1.5; stemRadius: 0.2; capRadius: 0.6; capHeight: 0.3"></a-entity>
-
-        <!-- Another medium orange mushroom -->
-        <a-entity position="1 0 -4.5" scale="0.9 0.9 0.9"
-                  class="collidable" change-color-on-click
-                  mushroom="stemColor: #F0E68C; capColor: #FF8C00; stemHeight: 0.7; stemRadius: 0.2; capRadius: 0.6; capHeight: 0.28"></a-entity>
-
-        <!-- Another small green mushroom -->
-        <a-entity position="4 0 -3" scale="0.6 0.6 0.6"
-                  class="collidable" change-color-on-click
-                  mushroom="stemColor: #E0E0E0; capColor: #3CB371; stemHeight: 0.5; stemRadius: 0.1; capRadius: 0.4; capHeight: 0.2"></a-entity>
-
-    </a-scene>
+    <!-- three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- WebXR VR Button helper -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
 
     <script>
-        // Hide loading screen once A-Frame scene is loaded
-        window.addEventListener('load', function() {
-            const scene = document.querySelector('a-scene');
-            const loadingScreen = document.getElementById('loading-screen');
+        // --- BASIC SETUP ---
+        // Scene, Camera, Renderer
+        let scene, camera, renderer;
+        // Interactive objects array
+        let interactiveObjects = [];
+        let room;
 
-            // A-Frame emits 'loaded' event when scene is ready
-            scene.addEventListener('loaded', function () {
-                console.log('A-Frame scene loaded!');
-                loadingScreen.classList.add('hidden');
-            });
-        });
+        // --- CONTROLLERS ---
+        let controller1, controller2;
+        const tempMatrix = new THREE.Matrix4();
 
-        // Custom A-Frame component to change color on click
-        AFRAME.registerComponent('change-color-on-click', {
-            init: function () {
-                var el = this.el; // Reference to the entity this component is attached to
-                // Define a set of random colors to cycle through
-                var colors = [
-                    '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF',
-                    '#FFA500', '#800080', '#008000', '#4682B4', '#D2691E', '#CD5C5C'
-                ];
-                // Note: We don't get original colors here, as the mushroom component might not be fully initialized yet.
-                // We will rely on setting new colors directly.
+        // Initialize the scene
+        init();
+        // Start the animation loop
+        animate();
 
-                // Store current color index for each mushroom instance
-                this.currentColorIndex = 0;
+        // --- INITIALIZATION FUNCTION ---
+        function init() {
+            // Create the main scene
+            scene = new THREE.Scene();
+            // Set a background color for the fallback 2D view
+            scene.background = new THREE.Color(0x202020);
 
-                // Listen for 'click' events on this entity (the mushroom parent entity)
-                el.addEventListener('click', function (evt) {
-                    console.log('Mushroom clicked:', el.id || el.tagName, 'at:', evt.detail.intersection.point);
+            // Create the camera
+            // The camera is what we see through.
+            // FOV, Aspect Ratio, Near clip plane, Far clip plane
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            // Position the camera slightly back so we can see the origin
+            camera.position.set(0, 1.6, 0.5);
 
-                    // Cycle through colors
-                    this.currentColorIndex = (this.currentColorIndex + 1) % colors.length;
-                    var newColor = colors[this.currentColorIndex];
+            // --- THE VR ROOM ---
+            // A group to hold all parts of the room
+            room = new THREE.Group();
+            scene.add(room);
 
-                    // Update the cap and stem colors of the mushroom by setting the 'mushroom' component's properties
-                    // This will trigger the 'update' method of the 'mushroom' component
-                    el.setAttribute('mushroom', {
-                        capColor: newColor,
-                        stemColor: newColor // Changing both for a more dramatic effect, can be just capColor
-                    });
-                }.bind(this)); // Bind 'this' to ensure currentColorIndex refers to the component's instance
+            // Room dimensions
+            const roomSize = 8; // 8 meters wide/deep
+            const wallHeight = 4; // 4 meters high
+
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(roomSize, roomSize);
+            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xdddddd, side: THREE.DoubleSide });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+            floor.name = "Floor";
+            room.add(floor);
+            interactiveObjects.push(floor);
+
+            // Ceiling
+            const ceilingGeometry = new THREE.PlaneGeometry(roomSize, roomSize);
+            const ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+            ceiling.position.y = wallHeight;
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.name = "Ceiling";
+            room.add(ceiling);
+            interactiveObjects.push(ceiling);
+
+            // Walls (4 of them)
+            const wallGeometry = new THREE.PlaneGeometry(roomSize, wallHeight);
+
+            // Front Wall
+            const frontWall = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ color: 0x88aaff }));
+            frontWall.position.z = -roomSize / 2;
+            frontWall.position.y = wallHeight / 2;
+            frontWall.name = "Front Wall";
+            room.add(frontWall);
+            interactiveObjects.push(frontWall);
+
+            // Back Wall
+            const backWall = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ color: 0x88aaff }));
+            backWall.position.z = roomSize / 2;
+            backWall.position.y = wallHeight / 2;
+            backWall.rotation.y = Math.PI;
+            backWall.name = "Back Wall";
+            room.add(backWall);
+            interactiveObjects.push(backWall);
+
+            // Left Wall
+            const leftWall = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ color: 0xff88aa }));
+            leftWall.position.x = -roomSize / 2;
+            leftWall.position.y = wallHeight / 2;
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.name = "Left Wall";
+            room.add(leftWall);
+            interactiveObjects.push(leftWall);
+
+            // Right Wall
+            const rightWall = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ color: 0xff88aa }));
+            rightWall.position.x = roomSize / 2;
+            rightWall.position.y = wallHeight / 2;
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.name = "Right Wall";
+            room.add(rightWall);
+            interactiveObjects.push(rightWall);
+
+
+            // --- INTERACTIVE CUBE ---
+            // Let's add a box in the middle to interact with
+            const boxGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const boxMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+            const cube = new THREE.Mesh(boxGeometry, boxMaterial);
+            // Position it in the center of the room at a comfortable height
+            cube.position.set(0, 1.6, -1.5);
+            cube.name = "Interactive Cube";
+            scene.add(cube); // Add directly to scene, not room group
+            interactiveObjects.push(cube);
+
+
+            // --- LIGHTING ---
+            // Hemisphere light provides a soft ambient light from above
+            const hemisphereLight = new THREE.HemisphereLight(0x808080, 0x606060);
+            scene.add(hemisphereLight);
+
+            // Directional light acts like the sun
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(0, 3, 2);
+            scene.add(directionalLight);
+
+
+            // --- RENDERER ---
+            // The renderer draws the scene onto the screen
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            // Enable WebXR (VR) capabilities
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // Add the VR entry button to the page
+            document.body.appendChild(VRButton.createButton(renderer));
+
+            
+            // --- OCULUS CONTROLLER SETUP ---
+            // Controller 1 (usually right hand)
+            controller1 = renderer.xr.getController(0);
+            // Event listener for the 'select' event (trigger press)
+            controller1.addEventListener('selectstart', onSelectStart);
+            scene.add(controller1);
+
+            // Controller 2 (usually left hand)
+            controller2 = renderer.xr.getController(1);
+            controller2.addEventListener('selectstart', onSelectStart);
+            scene.add(controller2);
+            
+            // --- CONTROLLER VISUALS ---
+            // Add a visual line to represent the controller's pointer
+            const controllerGripGeometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -1) // Line points forward
+            ]);
+            const line = new THREE.Line(controllerGripGeometry);
+            line.scale.z = 5; // Make the line longer to see where we're pointing
+
+            controller1.add(line.clone());
+            controller2.add(line.clone());
+
+            // --- WINDOW RESIZE HANDLING ---
+            // This ensures the view doesn't get distorted if the browser window changes size
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        // --- CONTROLLER INTERACTION ---
+        function onSelectStart(event) {
+            // This function is called when a controller trigger is pressed
+            const controller = event.target;
+            
+            // Create a raycaster to shoot a "laser" from the controller
+            const raycaster = new THREE.Raycaster();
+            
+            // Get the controller's position and orientation
+            tempMatrix.identity().extractRotation(controller.matrixWorld);
+            raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+            raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+            
+            // Check for intersections with our interactive objects
+            const intersects = raycaster.intersectObjects(interactiveObjects);
+            
+            if (intersects.length > 0) {
+                // If we hit something, take the first object we hit
+                const intersectedObject = intersects[0].object;
+                
+                // Change its color to a random new color
+                intersectedObject.material.color.setHex(Math.random() * 0xffffff);
+
+                // Simple haptic feedback!
+                // This will make the controller vibrate briefly.
+                // Note: The availability and behavior of this can vary.
+                const gamepad = controller.gamepad;
+                if (gamepad && gamepad.hapticActuators && gamepad.hapticActuators[0]) {
+                    gamepad.hapticActuators[0].pulse(0.5, 100); // Vibrate with intensity 0.5 for 100ms
+                }
             }
-        });
+        }
 
-        // Component to log thumbstick movement for debugging (optional)
-        AFRAME.registerComponent('thumbstick-logger', {
-            init: function () {
-                this.el.addEventListener('thumbstickmoved', function (evt) {
-                    // console.log('Thumbstick moved:', evt.detail.x, evt.detail.y);
-                });
-            }
-        });
+        // --- RESIZE HANDLER ---
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-        // Attach thumbstick-logger to the left controller for debugging movement input
-        document.addEventListener('DOMContentLoaded', function() {
-            const leftHand = document.getElementById('leftHand');
-            if (leftHand) {
-                leftHand.setAttribute('thumbstick-logger', '');
-            }
-        });
+        // --- ANIMATION LOOP ---
+        function animate() {
+            // This tells the renderer to call 'animate' on the next frame
+            renderer.setAnimationLoop(render);
+        }
+
+        // --- RENDER FUNCTION ---
+        // This is called every frame
+        function render() {
+            // Render the scene from the perspective of the camera
+            renderer.render(scene, camera);
+        }
 
     </script>
 </body>
