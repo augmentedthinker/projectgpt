@@ -98,30 +98,36 @@
                     var el = this.el;
 
                     // Mushroom Stem (Cylinder)
-                    var stem = document.createElement('a-cylinder');
-                    stem.setAttribute('height', data.stemHeight);
-                    stem.setAttribute('radius', data.stemRadius);
-                    stem.setAttribute('color', data.stemColor);
-                    stem.setAttribute('position', `0 ${data.stemHeight / 2} 0`); // Base at 0,0,0
-                    stem.setAttribute('material', 'shader: standard; roughness: 0.7');
-                    el.appendChild(stem);
+                    this.stem = document.createElement('a-cylinder'); // Store reference to stem
+                    this.stem.setAttribute('height', data.stemHeight);
+                    this.stem.setAttribute('radius', data.stemRadius);
+                    this.stem.setAttribute('material', 'shader: standard; roughness: 0.7');
+                    this.stem.setAttribute('position', `0 ${data.stemHeight / 2} 0`);
+                    el.appendChild(this.stem);
 
                     // Mushroom Cap (Sphere)
-                    var cap = document.createElement('a-sphere');
-                    cap.setAttribute('radius', data.capRadius);
-                    cap.setAttribute('color', data.capColor);
-                    // Position cap on top of the stem
-                    cap.setAttribute('position', `0 ${data.stemHeight + data.capOffsetY} 0`);
-                    cap.setAttribute('material', 'shader: standard; roughness: 0.7');
-                    // To make it more cap-like, we can scale it on Y, but an a-sphere doesn't have height easily.
-                    // A better cap might be a dome or a scaled sphere. For simplicity, keeping it sphere for now.
-                    el.appendChild(cap);
+                    this.cap = document.createElement('a-sphere'); // Store reference to cap
+                    this.cap.setAttribute('radius', data.capRadius);
+                    this.cap.setAttribute('material', 'shader: standard; roughness: 0.7');
+                    this.cap.setAttribute('scale', `1 0.5 1`); // Flatten on Y-axis
+                    this.cap.setAttribute('position', `0 ${data.stemHeight + data.capRadius * 0.5 + data.capOffsetY} 0`);
+                    el.appendChild(this.cap);
 
-                    // For the cap to look more like a mushroom, we can adjust its scale
-                    // This will be applied to the sphere to flatten it slightly
-                    cap.setAttribute('scale', `1 0.5 1`); // Flatten on Y-axis
-                    // Re-adjust position due to scaling
-                    cap.setAttribute('position', `0 ${data.stemHeight + data.capRadius * 0.5 + data.capOffsetY} 0`);
+                    // Set initial colors
+                    this.stem.setAttribute('color', data.stemColor);
+                    this.cap.setAttribute('color', data.capColor);
+                },
+                // The update method is called when component data changes
+                update: function (oldData) {
+                    var data = this.data;
+
+                    // Check if colors have changed and update the elements
+                    if (oldData.stemColor !== data.stemColor) {
+                        this.stem.setAttribute('color', data.stemColor);
+                    }
+                    if (oldData.capColor !== data.capColor) {
+                        this.cap.setAttribute('color', data.capColor);
+                    }
                 }
             });
         </script>
@@ -183,12 +189,8 @@
                     '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF',
                     '#FFA500', '#800080', '#008000', '#4682B4', '#D2691E', '#CD5C5C'
                 ];
-                var originalCapColor = el.getAttribute('mushroom', 'capColor'); // Get initial cap color from the mushroom component
-                var originalStemColor = el.getAttribute('mushroom', 'stemColor'); // Get initial stem color
-
-                // Add original colors to the cycle to allow reverting
-                colors.push(originalCapColor); // Add original cap color
-                colors.push(originalStemColor); // Add original stem color
+                // Note: We don't get original colors here, as the mushroom component might not be fully initialized yet.
+                // We will rely on setting new colors directly.
 
                 // Store current color index for each mushroom instance
                 this.currentColorIndex = 0;
@@ -201,10 +203,12 @@
                     this.currentColorIndex = (this.currentColorIndex + 1) % colors.length;
                     var newColor = colors[this.currentColorIndex];
 
-                    // Update the cap and stem colors of the mushroom using setAttribute
-                    // We target the 'mushroom' component directly and update its schema properties
-                    el.setAttribute('mushroom', 'capColor', newColor);
-                    el.setAttribute('mushroom', 'stemColor', newColor); // Optionally change stem color too
+                    // Update the cap and stem colors of the mushroom by setting the 'mushroom' component's properties
+                    // This will trigger the 'update' method of the 'mushroom' component
+                    el.setAttribute('mushroom', {
+                        capColor: newColor,
+                        stemColor: newColor // Changing both for a more dramatic effect, can be just capColor
+                    });
                 }.bind(this)); // Bind 'this' to ensure currentColorIndex refers to the component's instance
             }
         });
