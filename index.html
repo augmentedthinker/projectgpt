@@ -1,288 +1,231 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
+    <title>VR Mushroom Garden with Oculus Controls</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE Master Scene</title>
-    <!-- Meta tags for SEO and social sharing -->
-    <meta name="description" content="An immersive VR experience built with A-Frame, featuring interactive elements and AI integration, optimized for Meta Quest 2 and Chromebooks.">
-    <meta name="author" content="Gemini AI">
-    <meta name="keywords" content="VR, A-Frame, WebXR, Meta Quest, Chromebook, AI, immersive, single-file">
-
-    <!-- A-Frame CDN for easy inclusion without npm -->
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <!-- A-Frame Environment Component CDN for richer scenes -->
-    <script src="https://cdn.jsdelivr.net/gh/supermedium/aframe-environment-component@1.3.1/dist/aframe-environment-component.min.js"></script>
-    <!-- Tone.js for simple audio feedback -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
-
+    <!-- A-Frame CDN -->
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <!-- A-Frame Extras for movement-controls -->
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
     <style>
-        /* This section would ideally be in an external styles.css file for better organization */
-        /* body {
-            margin: 0;
-            overflow: hidden;
-            font-family: 'Inter', sans-serif;
-            background-color: #1a1a2e;
-            color: #e0e0e0;
-        } */
-        body {
-            margin: 0;
-            overflow: hidden; /* Prevent scrollbars */
-            font-family: 'Inter', sans-serif; /* Use Inter font */
-            background-color: #1a1a2e; /* Dark background */
-            color: #e0e0e0; /* Light text color */
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
+        /* Simple styling for the main container if needed, though A-Frame typically takes over */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 1s ease-in-out;
         }
-        /* Ensure the A-Frame canvas takes full viewport, contributing to responsive design */
-        a-scene {
-            display: block;
-            width: 100vw;
-            height: 100vh;
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <a-scene>
-        <!-- Camera with a gaze-based cursor and raycaster for interaction -->
-        <!-- The raycaster targets objects with the 'collidable' class -->
-        <!-- showLine: true is useful for debugging to see where the gaze ray is going -->
-        <a-camera position="0 1.6 0" look-controls
-                  raycaster="objects: .collidable; showLine: true; far: 50"
-                  cursor="fuse: false; rayOrigin: cursor">
-            <!-- Cursor visual - This entity provides the visual representation of the cursor -->
-            <a-entity position="0 0 -1"
-                      geometry="primitive: ring; radiusOuter: 0.008; radiusInner: 0.005"
-                      material="color: #fff; shader: flat"
-                      ></a-entity>
-        </a-camera>
+    <!-- Loading screen to provide feedback while assets load (though minimal here) -->
+    <div id="loading-screen">
+        <p>Entering the Mushroom Forest...</p>
+    </div>
 
-        <!-- Environment component for a richer background without complex modeling -->
-        <a-entity environment="preset: contact; lightPosition: 0 5 0;"></a-entity>
+    <a-scene background="color: #333333" cursor="rayOrigin: mouse" raycaster="objects: .collidable">
+        <!-- Asset management (optional but good practice) -->
+        <a-assets>
+            <!-- No external assets for now, but this is where they would go -->
+        </a-assets>
 
-        <!-- An interactive box - now with 'collidable' class for raycaster interaction and animations -->
-        <a-box id="interactiveBox"
-               position="-1 0.5 -3"
-               rotation="0 45 0"
-               color="#EF2D5E"
-               shadow
-               class="collidable"
-               event-set__enter="_event:mouseenter; color: #4CC3D9; scale: 1.1 1.1 1.1;"
-               event-set__leave="_event:mouseleave; color: #EF2D5E; scale: 1 1 1;">
-            <!-- Animation for continuous subtle rotation -->
-            <a-animation attribute="rotation"
-                         dur="8000"
-                         fill="forwards"
-                         to="0 405 0"
-                         easing="linear"
-                         repeat="indefinite"></a-animation>
-        </a-box>
+        <!-- Camera Rig for Movement -->
+        <!-- The camera rig is a parent entity that moves, allowing the camera (and controllers) to follow. -->
+        <!-- 'movement-controls' handles the locomotion. 'speed' can be adjusted. -->
+        <a-entity id="rig" movement-controls="speed: 0.1; fly: false">
+            <!-- Camera -->
+            <!-- 'look-controls' allows head rotation. 'wasd-controls' for keyboard fallback. -->
+            <a-camera position="0 1.6 0" look-controls wasd-controls>
+                <!-- Gaze cursor for non-VR or fallback interaction (optional but helpful) -->
+                <a-entity cursor="fuse: false; rayOrigin: mouse"
+                          position="0 0 -1"
+                          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                          material="color: white; shader: flat; opacity: 0.7"></a-entity>
+            </a-camera>
 
-        <!-- A static green sphere with pulse animation -->
-        <a-sphere position="1 1.25 -5" radius="1.25" color="#5a9c37" shadow>
-            <a-animation attribute="scale"
-                         dur="1500"
-                         fill="forwards"
-                         to="1.05 1.05 1.05"
-                         direction="alternate"
-                         easing="ease-in-out"
-                         repeat="indefinite"></a-animation>
-        </a-sphere>
+            <!-- Oculus Touch Controllers -->
+            <!-- 'meta-touch-controls' provides the 3D model and events for Oculus controllers. -->
+            <!-- 'hand: left' for the left controller, 'hand: right' for the right. -->
+            <a-entity id="leftHand" meta-touch-controls="hand: left; model: true"></a-entity>
 
-        <!-- A new static cylinder with subtle vertical movement -->
-        <a-cylinder position="2 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow>
-            <a-animation attribute="position"
-                         dur="2000"
-                         fill="forwards"
-                         to="2 0.85 -3"
-                         direction="alternate"
-                         easing="ease-in-out"
-                         repeat="indefinite"></a-animation>
-        </a-cylinder>
-
-        <!-- Simple welcome text element - ensure sufficient contrast (current colors are good) -->
-        <a-text value="Welcome to VIBE!"
-                position="0 2.5 -4"
-                align="center"
-                color="#e0e0e0"
-                width="5"></a-text>
-
-        <!-- A button to trigger AI response -->
-        <!-- It has the 'collidable' class so the raycaster can interact with it -->
-        <a-entity id="aiButton"
-                  position="0 1 -2.5"
-                  geometry="primitive: box; width: 0.8; height: 0.3; depth: 0.1"
-                  material="color: #6A05AD; shader: flat"
-                  shadow
-                  class="collidable"
-                  gaze-click-handler> <!-- Custom component for handling clicks and AI logic -->
-            <a-text value="Ask AI for VR Fact"
-                    position="0 0 0.06"
-                    align="center"
-                    color="#FFFFFF"
-                    width="0.7"></a-text>
-            <!-- Text element to display AI response -->
-            <a-text id="aiResponseText"
-                    value="AI says..."
-                    position="0 -0.5 0"
-                    align="center"
-                    color="#FFD700"
-                    width="2"
-                    wrap-count="30"
-                    visible="false"></a-text>
-            <!-- Loading indicator text -->
-            <a-text id="loadingText"
-                    value="Thinking..."
-                    position="0 -0.2 0.06"
-                    align="center"
-                    color="#FFFFFF"
-                    width="0.8"
-                    visible="false"></a-text>
+            <a-entity id="rightHand" meta-touch-controls="hand: right; model: true" laser-controls="hand: right">
+                <!-- 'laser-controls' adds a visual laser pointer and a raycaster for interaction. -->
+                <!-- The cursor component on the laser-controls creates click events on intersected objects. -->
+                <a-entity cursor="rayOrigin: entity; fuse: false"
+                          geometry="primitive: sphere; radius: 0.005"
+                          material="color: red; shader: flat"
+                          raycaster="objects: .collidable; showLine: true; lineColor: blue; lineOpacity: 0.8">
+                </a-entity>
+            </a-entity>
         </a-entity>
 
-        <!-- Lights for better visibility and shadows -->
-        <!-- Consider optimizing light count for performance in complex scenes -->
-        <a-entity light="type: ambient; color: #BBB"></a-entity>
-        <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-1 1 1"></a-entity>
+        <!-- Floor -->
+        <!-- A simple green plane as the floor. It has a class 'collidable' to be interactable. -->
+        <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#558B2F"
+                 material="shader: standard; roughness: 0.7" class="collidable"></a-plane>
+
+        <!-- Mushroom Factory Component (for easier creation of mushrooms) -->
+        <!-- This custom component will create the stem and cap for a mushroom entity -->
+        <script>
+            AFRAME.registerComponent('mushroom', {
+                schema: {
+                    stemColor: {type: 'color', default: '#D2B48C'}, // Tan/light brown
+                    capColor: {type: 'color', default: '#8B0000'},  // Dark Red
+                    stemHeight: {type: 'number', default: 1},
+                    stemRadius: {type: 'number', default: 0.2},
+                    capRadius: {type: 'number', default: 0.6},
+                    capHeight: {type: 'number', default: 0.3},
+                    capOffsetY: {type: 'number', default: 0} // Offset cap vertically if needed
+                },
+                init: function () {
+                    var data = this.data;
+                    var el = this.el;
+
+                    // Mushroom Stem (Cylinder)
+                    var stem = document.createElement('a-cylinder');
+                    stem.setAttribute('height', data.stemHeight);
+                    stem.setAttribute('radius', data.stemRadius);
+                    stem.setAttribute('color', data.stemColor);
+                    stem.setAttribute('position', `0 ${data.stemHeight / 2} 0`); // Base at 0,0,0
+                    stem.setAttribute('material', 'shader: standard; roughness: 0.7');
+                    el.appendChild(stem);
+
+                    // Mushroom Cap (Sphere)
+                    var cap = document.createElement('a-sphere');
+                    cap.setAttribute('radius', data.capRadius);
+                    cap.setAttribute('color', data.capColor);
+                    // Position cap on top of the stem
+                    cap.setAttribute('position', `0 ${data.stemHeight + data.capOffsetY} 0`);
+                    cap.setAttribute('material', 'shader: standard; roughness: 0.7');
+                    // To make it more cap-like, we can scale it on Y, but an a-sphere doesn't have height easily.
+                    // A better cap might be a dome or a scaled sphere. For simplicity, keeping it sphere for now.
+                    el.appendChild(cap);
+
+                    // For the cap to look more like a mushroom, we can adjust its scale
+                    // This will be applied to the sphere to flatten it slightly
+                    cap.setAttribute('scale', `1 0.5 1`); // Flatten on Y-axis
+                    // Re-adjust position due to scaling
+                    cap.setAttribute('position', `0 ${data.stemHeight + data.capRadius * 0.5 + data.capOffsetY} 0`);
+                }
+            });
+        </script>
+
+        <!-- Mushrooms -->
+        <!-- Each mushroom entity now uses the custom 'mushroom' component -->
+
+        <!-- Large Red Mushroom -->
+        <a-entity position="-3 0 -5" scale="1.5 1.5 1.5"
+                  class="collidable" change-color-on-click
+                  mushroom="stemColor: #D2B48C; capColor: #FF4500; stemHeight: 1.2; stemRadius: 0.3; capRadius: 0.8; capHeight: 0.4"></a-entity>
+
+        <!-- Medium Blue Mushroom -->
+        <a-entity position="0 0 -3" scale="1 1 1"
+                  class="collidable" change-color-on-click
+                  mushroom="stemColor: #F5DEB3; capColor: #4169E1; stemHeight: 0.8; stemRadius: 0.25; capRadius: 0.7; capHeight: 0.3"></a-entity>
+
+        <!-- Small Yellow Mushroom -->
+        <a-entity position="2.5 0 -2" scale="0.7 0.7 0.7"
+                  class="collidable" change-color-on-click
+                  mushroom="stemColor: #FFDEAD; capColor: #FFD700; stemHeight: 0.6; stemRadius: 0.15; capRadius: 0.5; capHeight: 0.25"></a-entity>
+
+        <!-- Tall Purple Mushroom -->
+        <a-entity position="-1.5 0 -1" scale="1.2 1.2 1.2"
+                  class="collidable" change-color-on-click
+                  mushroom="stemColor: #DEB887; capColor: #9932CC; stemHeight: 1.5; stemRadius: 0.2; capRadius: 0.6; capHeight: 0.3"></a-entity>
+
+        <!-- Another medium orange mushroom -->
+        <a-entity position="1 0 -4.5" scale="0.9 0.9 0.9"
+                  class="collidable" change-color-on-click
+                  mushroom="stemColor: #F0E68C; capColor: #FF8C00; stemHeight: 0.7; stemRadius: 0.2; capRadius: 0.6; capHeight: 0.28"></a-entity>
+
+        <!-- Another small green mushroom -->
+        <a-entity position="4 0 -3" scale="0.6 0.6 0.6"
+                  class="collidable" change-color-on-click
+                  mushroom="stemColor: #E0E0E0; capColor: #3CB371; stemHeight: 0.5; stemRadius: 0.1; capRadius: 0.4; capHeight: 0.2"></a-entity>
 
     </a-scene>
 
     <script>
-        // This script section would ideally be in an external scripts.js file for better organization
-        // and reusability, especially in larger projects.
+        // Hide loading screen once A-Frame scene is loaded
+        window.addEventListener('load', function() {
+            const scene = document.querySelector('a-scene');
+            const loadingScreen = document.getElementById('loading-screen');
 
-        // Initialize Tone.js for audio feedback
-        let clickSynth;
-        if (typeof Tone !== 'undefined') {
-            try {
-                clickSynth = new Tone.MembraneSynth().toDestination();
-            } catch (e) {
-                console.warn("Tone.js could not be initialized:", e);
-                clickSynth = null; // Ensure synth is null if initialization fails
-            }
-        }
+            // A-Frame emits 'loaded' event when scene is ready
+            scene.addEventListener('loaded', function () {
+                console.log('A-Frame scene loaded!');
+                loadingScreen.classList.add('hidden');
+            });
+        });
 
-
-        /**
-         * getAIReponse - Fetches a text response from the Gemini API.
-         * @param {string} prompt - The prompt to send to the AI.
-         * @returns {Promise<string>} - A promise that resolves to the AI's text response.
-         */
-        async function getAIReponse(prompt) {
-            const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-            const payload = { contents: chatHistory };
-            // The apiKey is left as an empty string; Canvas will automatically provide it.
-            // In a production environment, this API key should never be exposed client-side.
-            // A backend proxy is recommended to secure API keys and handle requests.
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-            // Add a timeout for the API call
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), 15000); // 15-second timeout
-
-            try {
-                console.log("Fetching AI response with prompt:", prompt);
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                    signal: controller.signal // Apply the timeout signal
-                });
-
-                // Clear the timeout as the fetch has completed
-                clearTimeout(id);
-
-                // Check if the response was successful (status code 2xx)
-                if (!response.ok) {
-                    const errorText = await response.text(); // Get response text for more details
-                    console.error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-                    // Provide user-friendly error message
-                    return `Error: Could not get AI response (Status: ${response.status}).`;
-                }
-
-                const result = await response.json();
-                console.log("AI response received:", result);
-
-                // Extract the text from the AI's response
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    return result.candidates[0].content.parts[0].text;
-                } else {
-                    console.error("Unexpected AI response structure:", result);
-                    return "AI did not respond as expected. Please try again.";
-                }
-            } catch (error) {
-                clearTimeout(id); // Ensure timeout is cleared even on error
-                if (error.name === 'AbortError') {
-                    console.error("Error fetching AI response: Request timed out", error);
-                    return "AI request timed out. Please try again.";
-                } else {
-                    console.error("Error fetching AI response:", error);
-                    return "Error connecting to AI. Check console for details.";
-                }
-            }
-        }
-
-        // A-Frame custom component to handle gaze clicks and trigger AI interaction
-        AFRAME.registerComponent('gaze-click-handler', {
+        // Custom A-Frame component to change color on click
+        AFRAME.registerComponent('change-color-on-click', {
             init: function () {
-                const el = this.el; // The entity this component is attached to
-                const aiResponseText = document.querySelector('#aiResponseText');
-                const loadingText = document.querySelector('#loadingText');
+                var el = this.el; // Reference to the entity this component is attached to
+                // Define a set of random colors to cycle through
+                var colors = [
+                    '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF',
+                    '#FFA500', '#800080', '#008000', '#4682B4', '#D2691E', '#CD5C5C'
+                ];
+                var originalCapColor = el.getAttribute('mushroom', 'capColor'); // Get initial cap color from the mushroom component
+                var originalStemColor = el.getAttribute('mushroom', 'stemColor'); // Get initial stem color
 
-                // Logging user interaction: AI button click
-                el.addEventListener('click', async function () {
-                    console.log("AI Button Clicked!");
-                    if (clickSynth) {
-                        try {
-                            // Play a subtle sound on click
-                            await Tone.start(); // Required to start audio context in some browsers
-                            clickSynth.triggerAttackRelease("C4", "8n");
-                        } catch (e) {
-                            console.warn("Failed to play click sound:", e);
-                        }
-                    }
+                // Add original colors to the cycle to allow reverting
+                colors.push(originalCapColor); // Add original cap color
+                colors.push(originalStemColor); // Add original stem color
 
-                    // Show loading message and hide previous AI response
-                    loadingText.setAttribute('visible', true);
-                    aiResponseText.setAttribute('visible', false);
-                    aiResponseText.setAttribute('value', 'AI says...'); // Reset text
+                // Store current color index for each mushroom instance
+                this.currentColorIndex = 0;
 
-                    // Visually indicate the button is pressed (temporary color change)
-                    el.setAttribute('material', 'color', '#8A2BE2'); // Lighter purple
+                // Listen for 'click' events on this entity (the mushroom parent entity)
+                el.addEventListener('click', function (evt) {
+                    console.log('Mushroom clicked:', el.id || el.tagName, 'at:', evt.detail.intersection.point);
 
-                    // Improve AI Prompt: Example of a dynamic prompt.
-                    // For user customization, you'd need a 3D input field or selection UI.
-                    const prompt = "Tell me a short, fascinating fact about virtual reality or its history. Keep it very concise, one to two sentences, and engaging.";
-                    // Fetch the AI response
-                    const response = await getAIReponse(prompt);
+                    // Cycle through colors
+                    this.currentColorIndex = (this.currentColorIndex + 1) % colors.length;
+                    var newColor = colors[this.currentColorIndex];
 
-                    // Hide loading message and display the AI's response
-                    loadingText.setAttribute('visible', false);
-                    aiResponseText.setAttribute('value', response);
-                    aiResponseText.setAttribute('visible', true);
+                    // Update the cap and stem colors of the mushroom using setAttribute
+                    // We target the 'mushroom' component directly and update its schema properties
+                    el.setAttribute('mushroom', 'capColor', newColor);
+                    el.setAttribute('mushroom', 'stemColor', newColor); // Optionally change stem color too
+                }.bind(this)); // Bind 'this' to ensure currentColorIndex refers to the component's instance
+            }
+        });
 
-                    // Revert button color to original
-                    el.setAttribute('material', 'color', '#6A05AD');
-                });
-
-                // Add hover effects for visual feedback and logging
-                el.addEventListener('mouseenter', function () {
-                    console.log("AI Button: mouseenter");
-                    // Only change color if the button is not currently in a loading state
-                    if (!loadingText.getAttribute('visible')) {
-                        el.setAttribute('material', 'color', '#9932CC'); // Darker purple on hover
-                    }
-                });
-                el.addEventListener('mouseleave', function () {
-                    console.log("AI Button: mouseleave");
-                    // Only revert color if the button is not currently in a loading state
-                    if (!loadingText.getAttribute('visible')) {
-                        el.setAttribute('material', 'color', '#6A05AD'); // Original purple
-                    }
+        // Component to log thumbstick movement for debugging (optional)
+        AFRAME.registerComponent('thumbstick-logger', {
+            init: function () {
+                this.el.addEventListener('thumbstickmoved', function (evt) {
+                    // console.log('Thumbstick moved:', evt.detail.x, evt.detail.y);
                 });
             }
         });
+
+        // Attach thumbstick-logger to the left controller for debugging movement input
+        document.addEventListener('DOMContentLoaded', function() {
+            const leftHand = document.getElementById('leftHand');
+            if (leftHand) {
+                leftHand.setAttribute('thumbstick-logger', '');
+            }
+        });
+
     </script>
 </body>
 </html>
